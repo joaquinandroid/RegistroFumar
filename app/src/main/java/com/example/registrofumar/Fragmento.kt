@@ -1,6 +1,9 @@
 package com.example.registrofumar
 
+import android.content.Context.MODE_PRIVATE
+import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -23,11 +26,21 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @AndroidEntryPoint
 class Fragmento : Fragment() {
 
     private lateinit var viewModel: MainViewModel
+
+    lateinit var txtCuentaCigarrillos: TextView
+    lateinit var txtHoraCigarrilloPasado: TextView
+
+    private lateinit var sharedPreferences: SharedPreferences
+    private val SHARED_PREFS_NAME = "myPrefs"
+    private val COUNT_KEY = "count"
+    private val HORA_KEY = "hour"
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -35,13 +48,51 @@ class Fragmento : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         val view = inflater.inflate(R.layout.fragmento, container, false)
+
+        txtCuentaCigarrillos = view?.findViewById<TextView>(R.id.txtCuentaCigarrillos)!!
+        val btnSumarCigarrillos = view?.findViewById<Button>(R.id.btnSumarCigarrillos)
+        val btnResetCigarrillos = view?.findViewById<Button>(R.id.btnResetCigarrillos)
+        txtHoraCigarrilloPasado = view?.findViewById<TextView>(R.id.txtHoraCigarrilloPasado)!!
+
+        sharedPreferences = requireActivity().getSharedPreferences(SHARED_PREFS_NAME, MODE_PRIVATE)
+
+        // Cargar el valor guardado en SharedPreferences
+        var count = sharedPreferences.getInt(COUNT_KEY, 0)
+        var hora = sharedPreferences.getString(HORA_KEY, "00:00")
+        txtCuentaCigarrillos.text = count.toString()
+        txtHoraCigarrilloPasado.text = hora
+
+        btnSumarCigarrillos?.setOnClickListener {
+            val horaActual = LocalTime.now()
+            count++
+            val formatter = DateTimeFormatter.ofPattern("HH:mm")
+            val horaSinSegundos = horaActual?.format(formatter)
+
+            with(sharedPreferences.edit()) {
+                putInt(COUNT_KEY, count)
+                putString(HORA_KEY, horaSinSegundos)
+                apply()
+            }
+
+        }
+
+        btnResetCigarrillos?.setOnClickListener {
+            // Reiniciar el contador a 0 y actualizar el TextView
+            count = 0
+            txtCuentaCigarrillos?.text = ""
+            // Guardar el nuevo valor en SharedPreferences
+            with(sharedPreferences.edit()) {
+                putInt(COUNT_KEY, count)
+                apply()
+            }
+        }
+
         return view
     }
 
     override fun onResume() {
         super.onResume()
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
-        //val viewModel: MainViewModel by viewModels()
 
         val txtEnero = view?.findViewById<TextView>(R.id.txtEnero)
         val txtFebrero = view?.findViewById<TextView>(R.id.txtFebrero)
@@ -203,7 +254,7 @@ class Fragmento : Fragment() {
                 builder.setTitle("Mensaje importante")
                     .setMessage("¿Estás seguro de continuar y borrar todos los registros?")
                     .setPositiveButton("Sí") { dialog, which ->
-                        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO)  {
+                        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
                             viewModel.borrarTodo()
                             // Código a ejecutar después de que se complete la operación de borrado
                         }
@@ -219,7 +270,7 @@ class Fragmento : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-
     }
+
+
 }
